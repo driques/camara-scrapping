@@ -1,7 +1,3 @@
-Aquí tienes una propuesta completa y profesional para tu archivo README.md. Está diseñado para que cualquier persona entienda qué hace el proyecto, cómo instalarlo y cómo usarlo.
-
-Puedes copiar y pegar este contenido directamente en GitHub.
-
 🇨🇱 Scraper de Mociones - Cámara de Diputadas y Diputados de Chile
 Este proyecto es una herramienta de automatización escrita en Python que extrae, analiza y visualiza la actividad legislativa de los parlamentarios chilenos desde el sitio web oficial de la Cámara de Diputadas y Diputados.
 

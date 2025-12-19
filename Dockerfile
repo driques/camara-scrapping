@@ -1,14 +1,13 @@
-FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
 
-WORKDIR /app
+WORKDIR /code
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 RUN playwright install chromium
 RUN playwright install-deps
 
-COPY . .
+COPY ./main.py /code/
 
-EXPOSE 8000
-CMD ["uvicorn", "camara_scrapping:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]

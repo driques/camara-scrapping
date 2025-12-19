@@ -38,13 +38,13 @@ async def obtener_proyectos(request: ScrapeRequest):
         
         try:
             print(f"Navegando a la URL...")
-            await page.goto(url, timeout=60000) 
+            await page.goto(url, timeout=60000)
             
             selector_id = "#ContentPlaceHolder1_ContentPlaceHolder1_DetallePlaceHolder_ddlAnnos"
             try:
                 await page.wait_for_selector(selector_id, timeout=15000)
             except:
-                raise HTTPException(status_code=404, detail="No se encontró el selector de años. Verifica la URL.")
+                raise HTTPException(status_code=404, detail="No se encontró el selector de años.")
 
             periodos_str = "No detectado"
             try:
@@ -63,8 +63,9 @@ async def obtener_proyectos(request: ScrapeRequest):
                 if val: anos.append(val)
 
             print(f"Años encontrados: {anos}")
+            
             datos_totales = []
-
+            seen_boletines = set()  
             for anno in anos:
                 print(f"Procesando año {anno}...")
                 
@@ -77,20 +78,22 @@ async def obtener_proyectos(request: ScrapeRequest):
                     pass 
                 
                 await asyncio.sleep(0.5)
-
                 filas = await page.locator("table.tabla tbody tr").all()
                 for fila in filas:
                     celdas = await fila.locator("td").all()
                     if len(celdas) >= 4:
-                        datos_totales.append({
-                            "año": anno,
-                            "tipo": "Admisible",
-                            "boletin": (await celdas[0].inner_text()).strip(),
-                            "fecha": (await celdas[1].inner_text()).strip(),
-                            "titulo": (await celdas[2].inner_text()).strip(),
-                            "estado": (await celdas[3].inner_text()).strip()
-                        })
-
+                        boletin = (await celdas[0].inner_text()).strip()
+                        
+                        if boletin not in seen_boletines:
+                            datos_totales.append({
+                                "año": anno,
+                                "tipo": "Admisible",
+                                "boletin": boletin,
+                                "fecha": (await celdas[1].inner_text()).strip(),
+                                "titulo": (await celdas[2].inner_text()).strip(),
+                                "estado": (await celdas[3].inner_text()).strip()
+                            })
+                            seen_boletines.add(boletin)
                 try:
                     btn_inad = page.get_by_role("link", name="Inadmisibles")
                     if await btn_inad.is_visible():
@@ -98,24 +101,28 @@ async def obtener_proyectos(request: ScrapeRequest):
                         await asyncio.sleep(1)
                         
                         vacio = await page.locator("h4", has_text="No existen Mociones Inadmisibles").is_visible()
+                        
                         if not vacio:
                             filas_inad = await page.locator("table.tabla tbody tr").all()
                             for fila in filas_inad:
                                 celdas = await fila.locator("td").all()
                                 if len(celdas) >= 4:
-                                    datos_totales.append({
-                                        "año": anno,
-                                        "tipo": "Inadmisible",
-                                        "boletin": (await celdas[0].inner_text()).strip(),
-                                        "fecha": "",
-                                        "titulo": (await celdas[2].inner_text()).strip(),
-                                        "estado": (await celdas[3].inner_text()).strip()
-                                    })
+                                    boletin = (await celdas[0].inner_text()).strip()
+                                    if boletin not in seen_boletines:
+                                        datos_totales.append({
+                                            "año": anno,
+                                            "tipo": "Inadmisible",
+                                            "boletin": boletin,
+                                            "fecha": "",
+                                            "titulo": (await celdas[2].inner_text()).strip(),
+                                            "estado": (await celdas[3].inner_text()).strip()
+                                        })
+                                        seen_boletines.add(boletin)
                 except Exception as e:
                     print(f"Error leve en inadmisibles: {e}")
 
             await browser.close()
-            print("Extracción finalizada con éxito.")
+            print(f"Extracción finalizada. Total únicos: {len(datos_totales)}")
             
             return {
                 "status": "success",

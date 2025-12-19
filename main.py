@@ -3,11 +3,14 @@ import asyncio
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 from playwright.async_api import async_playwright
+
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 app = FastAPI(title="Diputados Scraper API")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -15,7 +18,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class ScrapeRequest(BaseModel):
     url: str
@@ -36,12 +38,13 @@ async def obtener_proyectos(request: ScrapeRequest):
         
         try:
             print(f"Navegando a la URL...")
-            await page.goto(url, timeout=40000)
+            await page.goto(url, timeout=60000) 
+            
             selector_id = "#ContentPlaceHolder1_ContentPlaceHolder1_DetallePlaceHolder_ddlAnnos"
             try:
-                await page.wait_for_selector(selector_id, timeout=10000)
+                await page.wait_for_selector(selector_id, timeout=15000)
             except:
-                raise HTTPException(status_code=404, detail="No se encontró el selector de años en la página.")
+                raise HTTPException(status_code=404, detail="No se encontró el selector de años. Verifica la URL.")
 
             periodos_str = "No detectado"
             try:
@@ -64,6 +67,7 @@ async def obtener_proyectos(request: ScrapeRequest):
 
             for anno in anos:
                 print(f"Procesando año {anno}...")
+                
                 await page.evaluate(f"document.querySelector('{selector_id}').value = '{anno}';")
                 await page.evaluate(f"setTimeout('__doPostBack(\\'{selector_id.replace('#', '')}\\',\\'\\')', 0)")
                 
@@ -71,7 +75,9 @@ async def obtener_proyectos(request: ScrapeRequest):
                     await page.wait_for_load_state("networkidle", timeout=10000)
                 except:
                     pass 
+                
                 await asyncio.sleep(0.5)
+
                 filas = await page.locator("table.tabla tbody tr").all()
                 for fila in filas:
                     celdas = await fila.locator("td").all()
@@ -84,6 +90,7 @@ async def obtener_proyectos(request: ScrapeRequest):
                             "titulo": (await celdas[2].inner_text()).strip(),
                             "estado": (await celdas[3].inner_text()).strip()
                         })
+
                 try:
                     btn_inad = page.get_by_role("link", name="Inadmisibles")
                     if await btn_inad.is_visible():
@@ -123,5 +130,5 @@ async def obtener_proyectos(request: ScrapeRequest):
             raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    print("--- INICIANDO SERVIDOR (Modo Producción Local) ---")
+    print("--- INICIANDO SERVIDOR LOCAL ---")
     uvicorn.run(app, host="127.0.0.1", port=8000)
